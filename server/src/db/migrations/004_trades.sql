@@ -1,6 +1,6 @@
 CREATE TABLE trades(
     id SERIAL PRIMARY KEY,
-    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     pair VARCHAR(12) NOT NULL REFERENCES pairs(symbol),
     direction VARCHAR(5) NOT NULL CHECK (direction IN ('long', 'short')),
     entry_time TIMESTAMPTZ NOT NULL,

@@ -1,6 +1,6 @@
 CREATE TABLE strategies (
     id SERIAL PRIMARY KEY,
-    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(50) NOT NULL,
 
 -- it means that user1 say reversal then again it can never save user1 reversal again in the table
