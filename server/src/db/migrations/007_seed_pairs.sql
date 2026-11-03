@@ -1,0 +1,17 @@
+INSERT INTO pairs(symbol, name, category) VALUES
+    ('EURUSD', 'Euro / US Dollar', 'forex'),
+    ('EURGBP', 'Euro / British Pound', 'forex'),
+    ('EURJPY', 'Euro / Japanese Yen', 'forex'),
+    ('EURCHF', 'Euro / Swiss Franc', 'forex'),
+    ('EURAUD', 'Euro / Australian Dollar', 'forex'),
+    ('GBPUSD', 'British Pound / US Dollar', 'forex'),
+    ('GBPJPY', 'British Pound / Japanese Yen', 'forex'),
+    ('USDJPY', 'US Dollar / Japanese Yen', 'forex'),
+    ('USDCHF', 'US Dollar / Swiss Franc', 'forex'),
+    ('AUDUSD', 'Australian Dollar / US Dollar', 'forex'),
+    ('USDCAD', 'US Dollar / Canadian Dollar', 'forex'),
+    ('XAUUSD', 'Gold / US Dollar', 'commodity'),
+    ('NAS100', 'Nasdaq 100 Index', 'index'),
+    ('US30', 'Dow Jones Industrial Average', 'index'),
+    ('BTCUSD', 'Bitcoin / US Dollar', 'crypto'),
+    ('ETHUSD', 'Ethereum / US Dollar', 'crypto');
