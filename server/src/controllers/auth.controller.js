@@ -1,7 +1,7 @@
-import { signupUser } from "../services/auth.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import { signupUser, loginUser } from "../services/auth.service.js";
 
 export const signup = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
@@ -37,4 +37,26 @@ export const signup = asyncHandler(async (req, res) => {
 
   // 6. Send the success response (status typed once)
   new ApiResponse(201, user, "Signup ok").send(res);
+  //Controller me asyncHandler ke through ye error next(err) ke sath pass hota hai errorHandler middleware me.
+});
+
+export const login = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email?.trim() || !password?.trim()) {
+    throw new ApiError(400, "All fields are required");
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(cleanEmail)) {
+    throw new ApiError(400, "Invalid email format.");
+  }
+
+  const user = await loginUser({
+    email: cleanEmail,
+    password,
+  });
+
+  new ApiResponse(200, user, "Login ok").send(res);
 });
