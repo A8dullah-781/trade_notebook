@@ -1,7 +1,7 @@
 import pool from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { getSignedPnl } from "../utils/tradeMath.js";
+import { getSignedPnl, withR } from "../utils/tradeMath.js";
 
 export async function addTrade(userId, data) {
   // 1. Unpack the fields the controller sent
@@ -51,7 +51,8 @@ export async function addTrade(userId, data) {
     );
 
     // 4. One trade was created, so return the first (only) row
-    return result.rows[0];
+    return withR(result.rows[0]);
+
   } catch (err) {
     // 23503 = foreign key violation: pair doesn't exist, or strategy isn't yours
     if (err.code === "23503") {
@@ -87,7 +88,7 @@ export async function getTrade(userId, filters) {
     [userId, from, to, pair, limit, offset],
   );
 
-  return result.rows;
+  return result.rows.map(withR);
 }
 
 export async function getTradedPairs(userId) {
@@ -102,7 +103,7 @@ export async function getTradedPairs(userId) {
 export async function deleteTrade(userId, tradeId) {
   const result = await pool.query(
     `DELETE FROM trades WHERE id = $2 AND user_id = $1 RETURNING id`,
-    [userId, tradeId]
+    [userId, tradeId],
   );
 
   if (result.rows.length === 0) {
@@ -110,4 +111,71 @@ export async function deleteTrade(userId, tradeId) {
   }
 
   return result.rows[0].id;
+}
+
+export async function updateTrade(userId, tradeId, data) {
+  const {
+    pair,
+    direction,
+    entry_time,
+    exit_time,
+    entry_price,
+    exit_price,
+    stop_loss,
+    take_profit,
+    amount,
+    strategy_id,
+    followed_strategy,
+    notes,
+  } = data;
+
+  const pnl = getSignedPnl(direction, entry_price, exit_price, amount);
+
+  let result;
+  try {
+    result = await pool.query(
+      `UPDATE trades SET
+         pair = $1,
+         direction = $2,
+         entry_time = $3,
+         exit_time = $4,
+         entry_price = $5,
+         exit_price = $6,
+         stop_loss = $7,
+         take_profit = $8,
+         pnl_amount = $9,
+         strategy_id = $10,
+         followed_strategy = $11,
+         notes = $12
+       WHERE id = $13 AND user_id = $14
+       RETURNING *`,
+      [
+        pair,
+        direction,
+        entry_time,
+        exit_time,
+        entry_price,
+        exit_price,
+        stop_loss,
+        take_profit,
+        pnl,
+        strategy_id,
+        followed_strategy,
+        notes,
+        tradeId,
+        userId,
+      ],
+    );
+  } catch (err) {
+    if (err.code === "23503") {
+      throw new ApiError(400, "Invalid pair or strategy");
+    }
+    throw err;
+  }
+
+  if (result.rows.length === 0) {
+    throw new ApiError(404, "Trade not found");
+  }
+
+  return withR(result.rows[0]);
 }
