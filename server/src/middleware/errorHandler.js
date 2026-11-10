@@ -1,4 +1,5 @@
 import { ApiError } from "../utils/ApiError.js";
+import multer from "multer";
 
 //ErrorHandler middleware me agar error ApiError ka instance hai to uska status code or message send karte hai. Agar error ApiError ka instance nahi hai to iska status code 500 or message "Something went wrong" send karte hai.
 
@@ -8,6 +9,14 @@ export function errorHandler(err, req, res, next) {
     return res.status(err.statusCode).json({
       success: false,
       message: err.message,
+    });
+  }
+
+  // multer ka apna error hai (ApiError nahi), isliye alag se check karte hai
+  if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+    return res.status(400).json({
+      success: false,
+      message: "Image must be 5 MB or smaller",
     });
   }
 

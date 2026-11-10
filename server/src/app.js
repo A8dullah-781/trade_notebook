@@ -8,6 +8,8 @@ import tradesRoute from './routes/trades.routes.js'
 
 const app = express()
 
+// CLOUDINARY_URL=cloudinary://678254147711655:eivYbbX-6crtla0c_9VhGoJolF0@xeosyafd
+
 app.use(express.json());
 app.use('/auth', authRoutes)  
 app.use('/me', meRoutes)

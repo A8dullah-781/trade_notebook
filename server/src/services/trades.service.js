@@ -2,6 +2,7 @@ import pool from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { getSignedPnl, withR } from "../utils/tradeMath.js";
+import { uploadImage, deleteImage } from "./image.service.js";
 
 export async function addTrade(userId, data) {
   // 1. Unpack the fields the controller sent
@@ -60,7 +61,7 @@ export async function addTrade(userId, data) {
     }
     throw err;
   }
-}
+};
 
 export async function getTrade(userId, filters) {
   // CHANGE 1: unpack page too, default 1
@@ -74,7 +75,8 @@ export async function getTrade(userId, filters) {
     `SELECT
         t.id, t.pair, t.direction, t.entry_time, t.exit_time,
         t.entry_price, t.exit_price, t.stop_loss, t.take_profit,
-        t.pnl_amount, t.followed_strategy, t.notes, t.created_at,
+        t.pnl_amount, t.strategy_id, t.followed_strategy,
+        t.screenshot_url, t.notes, t.created_at,
         s.name AS strategy_name
      FROM trades t
      JOIN strategies s ON s.id = t.strategy_id
@@ -98,11 +100,11 @@ export async function getTradedPairs(userId) {
   );
 
   return result.rows.map((r) => r.pair);
-}
+};
 
 export async function deleteTrade(userId, tradeId) {
   const result = await pool.query(
-    `DELETE FROM trades WHERE id = $2 AND user_id = $1 RETURNING id`,
+    `DELETE FROM trades WHERE id = $2 AND user_id = $1 RETURNING id, screenshot_public_id`,
     [userId, tradeId],
   );
 
@@ -110,7 +112,19 @@ export async function deleteTrade(userId, tradeId) {
     throw new ApiError(404, "Trade not found");
   }
 
-  return result.rows[0].id;
+  const { id, screenshot_public_id } = result.rows[0];
+
+  // The row is already deleted. If Cloudinary fails, only log it.
+  try {
+    await deleteImage(screenshot_public_id);
+  } catch (err) {
+    console.error(
+      `Could not delete Cloudinary image ${screenshot_public_id}:`,
+      err,
+    );
+  }
+
+  return id;
 }
 
 export async function updateTrade(userId, tradeId, data) {
@@ -178,4 +192,61 @@ export async function updateTrade(userId, tradeId, data) {
   }
 
   return withR(result.rows[0]);
+};
+
+export async function updateScreenshot(userId, tradeId, buffer) {
+  const found = await pool.query(
+    `SELECT screenshot_public_id FROM trades WHERE id = $1 AND user_id = $2`,
+    [tradeId, userId],
+  );
+
+  if (found.rows.length === 0) {
+    throw new ApiError(404, "Trade not found");
+  }
+
+  const oldPublicId = found.rows[0].screenshot_public_id;
+
+  const { url, publicId } = await uploadImage(buffer);
+
+  const result = await pool.query(
+    `UPDATE trades
+     SET screenshot_url = $1, screenshot_public_id = $2
+     WHERE id = $3 AND user_id = $4
+     RETURNING *`,
+    [url, publicId, tradeId, userId],
+  );
+
+  await deleteImage(oldPublicId);
+
+  return withR(result.rows[0]);
+};
+
+export async function removeScreenshot(userId, tradeId) {
+  const result = await pool.query(
+    `SELECT screenshot_public_id FROM trades WHERE id = $1 AND user_id = $2`,
+    [tradeId, userId],
+  );
+
+  if (result.rows.length === 0) {
+    throw new ApiError(404, "Trade not found");
+  }
+
+  const oldImage = result.rows[0].screenshot_public_id;
+
+  const resultTwo = await pool.query(
+    `UPDATE trades
+     SET screenshot_url = NULL, screenshot_public_id = NULL
+     WHERE id = $1 AND user_id = $2
+     RETURNING *`,
+    [tradeId, userId],
+  );
+
+  // The row is already updated. If Cloudinary fails, only log it.
+  try {
+    await deleteImage(oldImage);
+  } catch (err) {
+    console.error(`Could not delete Cloudinary image ${oldImage}:`, err);
+  }
+
+  return withR(resultTwo.rows[0]);
 }
