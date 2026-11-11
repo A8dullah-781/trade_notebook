@@ -2,9 +2,12 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { signupUser, loginUser } from "../services/auth.service.js";
+import {isValidTimezone} from '../services/timezone.service.js'
+import { createEmailToken } from "../services/emailToken.service.js";
+import { sendVerificationEmail } from "../services/email.service.js";
 
 export const signup = asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, timezone } = req.body;
 
   // 1. Required fields
   if (!name?.trim() || !email?.trim() || !password?.trim()) {
@@ -28,12 +31,29 @@ export const signup = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid email format.");
   }
 
+  let finalTimezone = "UTC";
+
+  if (typeof timezone === "string" && timezone.trim() !== "") {
+    const valid = await isValidTimezone(timezone.trim());
+    if (valid) {
+      finalTimezone = timezone.trim();
+    }
+  }
+
   // 5. Call the service. If it throws, asyncHandler passes it to next(err)
   const user = await signupUser({
     name: name.trim(),
     email: cleanEmail,
     password,
+    timezone: finalTimezone
   });
+
+    try {
+    const rawToken = await createEmailToken(user.id, "verify");
+    await sendVerificationEmail(user.email, rawToken);
+  } catch (err) {
+    console.error("Verification email failed:", err.message);
+  }
 
   // 6. Send the success response (status typed once)
   new ApiResponse(201, user, "Signup ok").send(res);
