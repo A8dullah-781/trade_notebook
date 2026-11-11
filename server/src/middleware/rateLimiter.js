@@ -1,6 +1,18 @@
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { ApiError } from "../utils/ApiError.js";
 
+export const signupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+  handler: (req, res, next) => {
+    next(new ApiError(429, "Too many sign-ups from this network. Try again in 1 hour."));
+  },
+});
+
+
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 5,

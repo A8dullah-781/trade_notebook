@@ -4,6 +4,8 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { getSignedPnl, withR } from "../utils/tradeMath.js";
 import { uploadImage, deleteImage } from "./image.service.js";
 
+const UNVERIFIED_TRADE_LIMIT = 20;
+
 export async function addTrade(userId, data) {
   // 1. Unpack the fields the controller sent
   const {
@@ -21,12 +23,38 @@ export async function addTrade(userId, data) {
     notes,
   } = data;
 
+    // Unverified users can log only a limited number of trades
+  const userResult = await pool.query(
+    `SELECT email_verified FROM users WHERE id = $1`,
+    [userId]
+  );
+
+  const user = userResult.rows[0];
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (!user.email_verified) {
+    const countResult = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM trades WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (countResult.rows[0].count >= UNVERIFIED_TRADE_LIMIT) {
+      throw new ApiError(
+        403,
+        "Verify your email to log more trades",
+        "EMAIL_NOT_VERIFIED"
+      );
+    }
+  }
+
   // 2. Signed amount: +amount for a win, -amount for a loss, 0 for breakeven
   //    (argument order must match the function: direction first)
   const pnl = getSignedPnl(direction, entry_price, exit_price, amount);
 
   try {
-    // 3. Insert. 12 columns, 12 placeholders, 12 values in the same order.
     const result = await pool.query(
       `INSERT INTO trades
         (user_id, pair, direction, entry_time, exit_time,

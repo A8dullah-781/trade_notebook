@@ -1,19 +1,23 @@
 import { Router } from "express";
 import { signup, login } from "../controllers/auth.controller.js";
-import { authMiddleware } from "../middleware/auth.js";
-import { forgotLimiter, loginLimiter, passwordLimiter } from "../middleware/rateLimiter.js";
-import {forgotPass, resendVEmail, resetPass, verifyToken} from '../controllers/verifyToken.controller.js'
-import { resendLimiter } from "../middleware/rateLimiter.js";
+import { verifyEToken } from "../controllers/token.controller.js";
+import { resendVEmail } from "../controllers/email.controller.js";
+import { forgotPass, resetPass } from "../controllers/me.controller.js";
+import {
+  loginLimiter,
+  forgotLimiter,
+  resendLimiter,
+  signupLimiter,
+} from "../middleware/rateLimiter.js";
 
 const router = Router();
 
 //Request → app → router → controller → service → controller → response.
-router.post("/signup", signup);
+router.post("/signup", signupLimiter, signup);
 router.post("/login", loginLimiter, login);
-router.post("/verify", verifyToken);
-router.post('/resend', resendLimiter, resendVEmail);
-router.post('/forgot', forgotLimiter, forgotPass);
-router.post('/reset', resetPass);
-
+router.post("/verify", verifyEToken);
+router.post("/resend", resendLimiter, resendVEmail);
+router.post("/forgot", forgotLimiter, forgotPass);
+router.post("/reset", resetPass);
 
 export default router;

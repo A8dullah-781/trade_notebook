@@ -5,10 +5,11 @@ import multer from "multer";
 
 export function errorHandler(err, req, res, next) {
   //agar humne is error ko throw kiya hai to uska status code or message send krdo
-  if (err instanceof ApiError) {
+    if (err instanceof ApiError) {
     return res.status(err.statusCode).json({
       success: false,
       message: err.message,
+      code: err.code,
     });
   }
 

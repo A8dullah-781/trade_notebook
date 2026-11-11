@@ -3,8 +3,9 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { signupUser, loginUser } from "../services/auth.service.js";
 import {isValidTimezone} from '../services/timezone.service.js'
-import { createEmailToken } from "../services/emailToken.service.js";
-import { sendVerificationEmail } from "../services/email.service.js";
+import { createEmailToken } from "../services/helper.service.js";
+import { sendVerificationEmail } from "../services/helper.service.js";
+import { isDisposableEmail } from "disposable-email-domains-js";
 
 export const signup = asyncHandler(async (req, res) => {
   const { name, email, password, timezone } = req.body;
@@ -25,11 +26,18 @@ export const signup = asyncHandler(async (req, res) => {
   }
 
   // 4. Clean the email, then check its format
-  const cleanEmail = email.trim().toLowerCase();
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(cleanEmail)) {
-    throw new ApiError(400, "Invalid email format.");
-  }
+const cleanEmail = email.trim().toLowerCase();
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+if (!emailRegex.test(cleanEmail)) {
+  throw new ApiError(400, "Invalid email format.");
+}
+
+if (isDisposableEmail(cleanEmail)) {
+  throw new ApiError(400, "Please use a real email address");
+}
+
+
 
   let finalTimezone = "UTC";
 

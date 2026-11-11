@@ -2,9 +2,9 @@ import bcrypt from "bcrypt";
 import pool from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import jwt from "jsonwebtoken";
-import { sendVerificationEmail } from "../services/email.service.js";
-import { createEmailToken } from "./emailToken.service.js";
-import { sendResetEmailPass } from "../services/email.service.js";
+import { sendVerificationEmail } from "./helper.service.js";
+import { createEmailToken } from "./helper.service.js";
+import { sendResetEmailPassEmail } from "./helper.service.js";
 import { generateToken } from "../utils/tokens.js";
 import { hashToken } from "../utils/tokens.js";
 
@@ -81,104 +81,3 @@ export async function loginUser({ email, password }) {
   return { user: { id: user.id, name: user.name, email: user.email }, token };
 }
 
-export async function resendVerificationEmail(email) {
-  const cleanEmail = email.trim().toLowerCase();
-
-  const result = await pool.query(
-    "SELECT id, name, email, email_verified FROM users WHERE email = $1",
-    [cleanEmail],
-  );
-
-  const user = result.rows[0];
-
-  if (!user || user.email_verified) {
-    return;
-  }
-
-  const rawToken = await createEmailToken(user.id, "verify");
-
-  try {
-    await sendVerificationEmail(user.email, rawToken);
-  } catch (err) {
-    console.error("Resend email failed:", err.message);
-  }
-}
-
-export async function forgotPassword(email) {
-  const cleanEmail = email.trim().toLowerCase();
-
-  const result = await pool.query(
-    `SELECT id, email FROM users WHERE email = $1`,
-    [cleanEmail]
-  );
-
-  const user = result.rows[0];
-
-  if (!user) {
-    return;
-  }
-
-  const rawToken = await createEmailToken(user.id, "reset");
-
-  try {
-    await sendResetEmailPass(user.email, rawToken);
-  } catch (err) {
-    console.error("Reset email failed:", err.message);
-  }
-}
-
-export async function resetPassword(token, newPassword) {
-  const tokenHash = hashToken(token);
-
-  const result = await pool.query(
-    `SELECT id, user_id, expires_at, used_at
-     FROM email_tokens
-     WHERE token_hash = $1 AND type = $2`,
-    [tokenHash, "reset"]
-  );
-
-  const tokenRow = result.rows[0];
-
-  if (!tokenRow) {
-    throw new ApiError(400, "Link is invalid");
-  }
-
-  if (tokenRow.used_at) {
-    throw new ApiError(400, "This link was already used");
-  }
-
-  if (tokenRow.expires_at < new Date()) {
-    throw new ApiError(400, "This link has expired");
-  }
-
-  const passwordHash = await bcrypt.hash(newPassword, 10);
-
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const burned = await client.query(
-      `UPDATE email_tokens
-       SET used_at = NOW()
-       WHERE id = $1 AND used_at IS NULL`,
-      [tokenRow.id]
-    );
-
-    if (burned.rowCount === 0) {
-      throw new ApiError(400, "This link was already used");
-    }
-
-    await client.query(
-      `UPDATE users SET password_hash = $1 WHERE id = $2`,
-      [passwordHash, tokenRow.user_id]
-    );
-
-    await client.query("COMMIT");
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
-}
