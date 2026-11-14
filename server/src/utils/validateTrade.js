@@ -1,6 +1,7 @@
 import { ApiError } from "./ApiError.js";
+import { toUtc } from "./tradeTime.js";
 
-export function validateTrade(body) {
+export function validateTrade(body, zone) {
   const {
     pair,
     direction,
@@ -92,12 +93,9 @@ export function validateTrade(body) {
     throw new ApiError(400, "Amount must be above 0 for a win or a loss");
   }
 
-  const entryTime = new Date(entry_time);
-  const exitTime = new Date(exit_time);
-
-  if (Number.isNaN(entryTime.getTime()) || Number.isNaN(exitTime.getTime())) {
-    throw new ApiError(400, "Invalid Entry or Exit Time");
-  }
+  // toUtc throws 400 on an invalid time or zone
+  const entryTime = toUtc(entry_time, zone);
+  const exitTime = toUtc(exit_time, zone);
 
   if (exitTime <= entryTime) {
     throw new ApiError(400, "Exit time must be after entry time");
@@ -128,8 +126,8 @@ export function validateTrade(body) {
   return {
     pair,
     direction,
-    entry_time,
-    exit_time,
+    entry_time: entryTime,
+    exit_time: exitTime,
     entry_price,
     exit_price,
     stop_loss,

@@ -12,4 +12,4 @@ router.put('/:id', authMiddleware, uTrade)
 router.post('/:id/screenshot', authMiddleware, uploadScreenshot, uScreenshot)
 router.delete('/:id/screenshot', authMiddleware, rScreenshot)
 
-export default router
+export default router    

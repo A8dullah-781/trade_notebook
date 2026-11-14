@@ -3,16 +3,27 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { validateTrade } from "../utils/validateTrade.js";
 import { removeScreenshot, updateScreenshot } from "../services/trades.service.js";
-import {
-  addTrade,
-  deleteTrade,
-  getTrade,
-  getTradedPairs,
-  updateTrade,
+import { addTrade, deleteTrade, getTrade, getTradedPairs, updateTrade,
 } from "../services/trades.service.js";
+import { getMe } from "../services/me.service.js";
+
+
+async function getZone(userId, tz) {
+  if (tz === undefined || tz === null) {
+    const user = await getMe(userId);
+    return user.timezone;
+  }
+
+  if (typeof tz !== "string" || tz.trim() === "") {
+    throw new ApiError(400, "Invalid timezone");
+  }
+
+  return tz.trim();
+}
 
 export const aTrade = asyncHandler(async (req, res) => {
-  const tradeData = validateTrade(req.body);
+  const zone = await getZone(req.user.id, req.body.tz);
+  const tradeData = validateTrade(req.body, zone);
 
   const trade = await addTrade(req.user.id, tradeData);
 
@@ -87,7 +98,8 @@ export const uTrade = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid trade id");
   }
 
-  const tradeData = validateTrade(req.body);
+  const zone = await getZone(userId, req.body.tz);
+  const tradeData = validateTrade(req.body, zone);
 
   const updatedTrade = await updateTrade(userId, tradeId, tradeData);
 
@@ -122,4 +134,6 @@ export const rScreenshot = asyncHandler(async (req, res) => {
   const trade = await removeScreenshot(userId, tradeId);
 
   new ApiResponse(200, trade, "Screenshot removed").send(res);
-});
+});   
+
+

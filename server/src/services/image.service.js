@@ -1,9 +1,9 @@
 import { cloudinary } from "../config/cloudinary.js";
 
-export function uploadImage(buffer) {
+export function uploadImage(buffer, options = {}) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
-      { folder: "trade-notebook", resource_type: "image" },
+      { folder: "trade-notebook", resource_type: "image", ...options },
       (error, result) => {
         if (error) {
           return reject(error);

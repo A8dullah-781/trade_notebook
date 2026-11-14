@@ -5,12 +5,14 @@ import {
   forgotPassword,
   resetPassword,
   changeTheEmail,
+  removeAvatar,
 } from "../services/me.service.js";
 import bcrypt from "bcrypt";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { isDisposableEmail } from "disposable-email-domains-js";
+import { updateAvatar } from "../services/me.service.js";
 
 export const gMe = asyncHandler(async (req, res) => {
   const { id } = req.user;
@@ -126,4 +128,22 @@ export const changeEmail = asyncHandler(async (req, res) => {
   await changeTheEmail(req.user.id, cleanEmail, currentPassword);
 
   new ApiResponse(200, null, "We sent a link to your new email").send(res);
+});
+
+export const uAvatar = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new ApiError(400, "Avatar image is required");
+  }
+
+  const user = await updateAvatar(req.user.id, req.file.buffer);
+
+  new ApiResponse(200, user, "Avatar updated").send(res);
+});
+
+export const rAvatar = asyncHandler(async (req, res) => {
+  const { id } = req.user;
+
+  const user = await removeAvatar(id);
+
+  new ApiResponse(200, user, "Avatar removed").send(res);
 });

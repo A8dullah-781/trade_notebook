@@ -8,6 +8,7 @@ import {
 } from "./helper.service.js";
 import {ApiError} from "../utils/ApiError.js";
 import {ApiResponse} from "../utils/ApiResponse.js";
+import { uploadImage, deleteImage } from "./image.service.js";
 
 export async function getMe(userId) {
   const result = await pool.query(
@@ -180,4 +181,67 @@ export async function changeTheEmail(userId, newEmail, currentPassword) {
   const rawToken = await createEmailToken(userId, "change_email", cleanEmail);
 
   await sendChangeEmailLinkEmail(cleanEmail, rawToken);
+}
+
+export async function updateAvatar(userId, buffer) {
+  const oldResult = await pool.query(
+    "SELECT avatar_public_id FROM users WHERE id = $1",
+    [userId],
+  );
+
+  if (oldResult.rows.length === 0) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const oldPublicId = oldResult.rows[0].avatar_public_id;
+
+  const { url, publicId } = await uploadImage(buffer, {
+    folder: "trade-notebook/avatars",
+    transformation: { width: 256, height: 256, crop: "fill", gravity: "face" },
+  });
+
+  const result = await pool.query(
+    `UPDATE users
+     SET avatar_url = $1, avatar_public_id = $2
+     WHERE id = $3
+     RETURNING id, name, email, avatar_url, email_verified, timezone, created_at`,
+    [url, publicId, userId],
+  );
+
+  try {
+    await deleteImage(oldPublicId);
+  } catch (err) {
+    console.error("Old avatar delete failed:", err.message);
+  }
+
+  return result.rows[0];
+}
+
+export async function removeAvatar(userId) {
+  const oldResult = await pool.query(
+    "SELECT avatar_public_id FROM users WHERE id = $1",
+    [userId],
+  );
+
+  if (oldResult.rows.length === 0) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const oldPublicId = oldResult.rows[0].avatar_public_id;
+
+  const result = await pool.query(
+    `UPDATE users
+     SET avatar_url = NULL, avatar_public_id = NULL
+     WHERE id = $1
+     RETURNING id, name, email, avatar_url, email_verified, timezone, created_at`,
+    [userId],
+  );
+
+  try {
+    await deleteImage(oldPublicId);
+  } catch (err) {
+    console.error("Old avatar delete failed:", err.message);
+  }
+
+  return result.rows[0];
 }
